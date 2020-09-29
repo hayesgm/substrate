@@ -28,28 +28,24 @@ use crate::Trait;
 use crate::Module as Contracts;
 
 use parity_wasm::elements::{Instruction, Instructions, FuncBody, ValueType, BlockType};
+use pwasm_utils::stack_height::inject_limiter;
 use sp_runtime::traits::Hash;
+use sp_sandbox::{EnvironmentDefinitionBuilder, Memory};
 use sp_std::{prelude::*, convert::TryFrom};
 
 /// Pass to `create_code` in order to create a compiled `WasmModule`.
+#[derive(Default)]
 pub struct ModuleDefinition {
 	pub data_segments: Vec<DataSegment>,
 	pub memory: Option<ImportedMemory>,
 	pub imported_functions: Vec<ImportedFunction>,
 	pub deploy_body: Option<FuncBody>,
 	pub call_body: Option<FuncBody>,
-}
-
-impl Default for ModuleDefinition {
-	fn default() -> Self {
-		Self {
-			data_segments: vec![],
-			memory: None,
-			imported_functions: vec![],
-			deploy_body: None,
-			call_body: None,
-		}
-	}
+	/// If seto to true the stack height limiter is injected into the the module. This is
+	/// needed for instruction debugging because the cost of executing the stack height
+	/// instrumentation should be included in the costs for the individual instructions that cause
+	/// more metering code (mainly call).
+	pub inject_stack_metering: bool,
 }
 
 pub struct DataSegment {
@@ -57,6 +53,7 @@ pub struct DataSegment {
 	pub value: Vec<u8>,
 }
 
+#[derive(Clone)]
 pub struct ImportedMemory {
 	pub min_pages: u32,
 	pub max_pages: u32,
@@ -80,6 +77,7 @@ pub struct ImportedFunction {
 pub struct WasmModule<T:Trait> {
 	pub code: Vec<u8>,
 	pub hash: <T::Hashing as Hash>::Output,
+	memory: Option<ImportedMemory>,
 }
 
 impl<T: Trait> From<ModuleDefinition> for WasmModule<T> {
@@ -107,7 +105,7 @@ impl<T: Trait> From<ModuleDefinition> for WasmModule<T> {
 			.export().field("call").internal().func(func_offset + 1).build();
 
 		// Grant access to linear memory.
-		if let Some(memory) = def.memory {
+		if let Some(memory) = &def.memory {
 			contract = contract.import()
 				.module("env").field("memory")
 				.external().memory(memory.min_pages, Some(memory.max_pages))
@@ -136,20 +134,33 @@ impl<T: Trait> From<ModuleDefinition> for WasmModule<T> {
 				.build()
 		}
 
-		let code = contract.build().to_bytes().unwrap();
+		let mut code = contract.build();
+		if def.inject_stack_metering {
+			code = inject_limiter(
+				code,
+				Contracts::<T>::current_schedule().max_stack_height
+			)
+			.unwrap();
+		}
+		let code = code.to_bytes().unwrap();
 		let hash = T::Hashing::hash(&code);
 		Self {
 			code,
-			hash
+			hash,
+			memory: def.memory,
 		}
 	}
 }
 
 impl<T: Trait> WasmModule<T> {
+	/// Creates a wasm module with an empty `call` and `deploy` function and nothing else.
 	pub fn dummy() -> Self {
 		ModuleDefinition::default().into()
 	}
 
+	/// Creates a wasm module of `target_bytes` size. Used to benchmark the performance of
+	/// `put_code` for different sizes of wasm modules. The generated module maximizes
+	/// instrumentation runtime by nesting blocks as deeply as possible given the byte budget.
 	pub fn sized(target_bytes: u32) -> Self {
 		use parity_wasm::elements::Instruction::{If, I32Const, Return, End};
 		// Base size of a contract is 47 bytes and each expansion adds 6 bytes.
@@ -171,6 +182,9 @@ impl<T: Trait> WasmModule<T> {
 		.into()
 	}
 
+	/// Creates a wasm module that calls the imported function named `getter_name` `repeat`
+	/// times. The imported function is expected to have the "getter signature" of
+	/// (out_ptr: u32, len_ptr: u32) -> ().
 	pub fn getter(getter_name: &'static str, repeat: u32) -> Self {
 		let pages = max_pages::<T>();
 		ModuleDefinition {
@@ -198,6 +212,9 @@ impl<T: Trait> WasmModule<T> {
 		.into()
 	}
 
+	/// Creates a wasm module that calls the imported hash function named `name` `repeat` times
+	/// with an input of size `data_size`. Hash functions have the signature
+	/// (input_ptr: u32, input_len: u32, output_ptr: u32) -> ()
 	pub fn hasher(name: &'static str, repeat: u32, data_size: u32) -> Self {
 		ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
@@ -216,9 +233,35 @@ impl<T: Trait> WasmModule<T> {
 		}
 		.into()
 	}
+
+	/// Build code by chaining `instructions` `repeat` times. Injects stack metering.
+	/// This is a shortcut for instruction benchmarks that do not need any variables,
+	/// memory, imported functions or other elements inside the module.
+	pub fn repeated(repeat: u32, instructions: &[Instruction]) -> Self {
+		ModuleDefinition {
+			call_body: Some(body::repeated(repeat, instructions)),
+			inject_stack_metering: true,
+			.. Default::default()
+		}
+		.into()
+	}
+
+	/// Creates a memory instance for use in a sandbox with dimensions declared in this module
+	/// and adds it to `env`. A reference to that memory is returned so that it can be used to
+	/// access the memory contents from the supervisor.
+	pub fn add_memory<S>(&self, env: &mut EnvironmentDefinitionBuilder<S>) -> Option<Memory> {
+		let memory = if let Some(memory) = &self.memory {
+			memory
+		} else {
+			return None;
+		};
+		let memory = Memory::new(memory.min_pages, Some(memory.max_pages)).unwrap();
+		env.add_memory("env", "memory", memory.clone());
+		Some(memory)
+	}
 }
 
-/// Mechanisms to create a function body that can be used inside a `ModuleDefinition`.
+/// Mechanisms to generate a function body that can be used inside a `ModuleDefinition`.
 pub mod body {
 	use super::*;
 
