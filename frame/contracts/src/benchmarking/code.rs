@@ -266,9 +266,14 @@ pub mod body {
 	use super::*;
 
 	pub enum CountedInstruction {
-		// (offset, increment_by)
-		Counter(u32, u32),
+		/// Insert the associated instruction
 		Regular(Instruction),
+		/// Insert a I32Const with incrementing value for each insertion
+		/// (start_at, increment_by)
+		Counter(u32, u32),
+		/// Insert a I32Const with a random  value in [low, high) not devisable by two.
+		/// (low, high)
+		RandomUnaligned(u32, u32),
 	}
 
 	pub fn plain(instructions: Vec<Instruction>) -> FuncBody {
@@ -289,18 +294,27 @@ pub mod body {
 	}
 
 	pub fn counted(repetitions: u32, mut instructions: Vec<CountedInstruction>) -> FuncBody {
+		use rand::prelude::*;
+
+		// We do not need to be secure here.
+		let mut rng = SmallRng::seed_from_u64(8446744073709551615);
+
 		// We need to iterate over indices because we cannot cycle over mutable references
 		let body = (0..instructions.len())
 			.cycle()
 			.take(instructions.len() * usize::try_from(repetitions).unwrap())
 			.map(|idx| {
 				match &mut instructions[idx] {
+					CountedInstruction::Regular(instruction) => instruction.clone(),
 					CountedInstruction::Counter(offset, increment_by) => {
 						let current = *offset;
 						*offset += *increment_by;
 						Instruction::I32Const(current as i32)
 					},
-					CountedInstruction::Regular(instruction) => instruction.clone(),
+					CountedInstruction::RandomUnaligned(low, high) => {
+						let unaligned = rng.gen_range(*low, *high) | 1;
+						Instruction::I32Const(unaligned as i32)
+					},
 				}
 			})
 			.chain(sp_std::iter::once(Instruction::End))

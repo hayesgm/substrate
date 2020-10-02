@@ -1604,6 +1604,22 @@ benchmarks! {
 	}: {
 		sbox.invoke();
 	}
+
+	instr_i64load {
+		let r in 0 .. INSTR_BENCHMARK_BATCHES;
+		use body::CountedInstruction::{RandomUnaligned, Regular};
+		let mut sandbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+			memory: Some(ImportedMemory::max::<T>()),
+			call_body: Some(body::counted(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
+				RandomUnaligned(0, code::max_pages::<T>() * 64 * 1024 - 8),
+				Regular(Instruction::I64Load(3, 0)),
+				Regular(Instruction::Drop),
+			])),
+			.. Default::default()
+		}));
+	}: {
+		sandbox.invoke();
+	}
 }
 
 #[cfg(test)]
@@ -1672,4 +1688,5 @@ mod tests {
 	create_test!(seal_hash_blake2_128_per_kb);
 	create_test!(instr_i64const);
 	create_test!(instr_br);
+	create_test!(instr_i64load);
 }
