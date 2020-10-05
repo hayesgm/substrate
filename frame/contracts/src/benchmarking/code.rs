@@ -265,6 +265,9 @@ pub mod body {
 		/// Insert a I32Const with a random value in [low, high) not devisable by two.
 		/// (low, high)
 		RandomUnaligned(u32, u32),
+		/// Insert a I32Const with a random value in [low, high).
+		/// (low, high)
+		RandomI32(i32, i32),
 		/// Insert a I64Const with a random value in [low, high).
 		/// (low, high)
 		RandomI64(i64, i64),
@@ -308,6 +311,9 @@ pub mod body {
 					DynInstr::RandomUnaligned(low, high) => {
 						let unaligned = rng.gen_range(*low, *high) | 1;
 						Instruction::I32Const(unaligned as i32)
+					},
+					DynInstr::RandomI32(low, high) => {
+						Instruction::I32Const(rng.gen_range(*low, *high))
 					},
 					DynInstr::RandomI64(low, high) => {
 						Instruction::I64Const(rng.gen_range(*low, *high))

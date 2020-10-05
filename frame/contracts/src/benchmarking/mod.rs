@@ -1629,6 +1629,23 @@ benchmarks! {
 	}: {
 		sbox.invoke();
 	}
+
+	instr_select {
+		let r in 0 .. INSTR_BENCHMARK_BATCHES;
+		use body::DynInstr::{RandomI64, RandomI32, Regular};
+		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
+				RandomI64(i64::min_value(), i64::max_value()),
+				RandomI64(i64::min_value(), i64::max_value()),
+				RandomI32(0, 2),
+				Regular(Instruction::Select),
+				Regular(Instruction::Drop),
+			])),
+			.. Default::default()
+		}));
+	}: {
+		sbox.invoke();
+	}
 }
 
 #[cfg(test)]
@@ -1698,4 +1715,5 @@ mod tests {
 	create_test!(instr_i64const);
 	create_test!(instr_i64load);
 	create_test!(instr_i64store);
+	create_test!(instr_select);
 }
