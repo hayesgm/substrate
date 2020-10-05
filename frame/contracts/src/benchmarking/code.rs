@@ -265,10 +265,13 @@ impl<T: Trait> WasmModule<T> {
 pub mod body {
 	use super::*;
 
-	pub enum CountedInstruction {
-		/// Insert the associated instruction
+	/// When generating contract code by repeating a wasm sequence, it sometimes necessary
+	/// to change those instructions on each repetition. The variants of this enum describe
+	/// various ways in which this can happen.
+	pub enum DynInstr {
+		/// Insert the associated instruction.
 		Regular(Instruction),
-		/// Insert a I32Const with incrementing value for each insertion
+		/// Insert a I32Const with incrementing value for each insertion.
 		/// (start_at, increment_by)
 		Counter(u32, u32),
 		/// Insert a I32Const with a random  value in [low, high) not devisable by two.
@@ -293,7 +296,7 @@ pub mod body {
 		FuncBody::new(Vec::new(), instructions)
 	}
 
-	pub fn counted(repetitions: u32, mut instructions: Vec<CountedInstruction>) -> FuncBody {
+	pub fn repeated_dyn(repetitions: u32, mut instructions: Vec<DynInstr>) -> FuncBody {
 		use rand::prelude::*;
 
 		// We do not need to be secure here.
@@ -305,13 +308,13 @@ pub mod body {
 			.take(instructions.len() * usize::try_from(repetitions).unwrap())
 			.map(|idx| {
 				match &mut instructions[idx] {
-					CountedInstruction::Regular(instruction) => instruction.clone(),
-					CountedInstruction::Counter(offset, increment_by) => {
+					DynInstr::Regular(instruction) => instruction.clone(),
+					DynInstr::Counter(offset, increment_by) => {
 						let current = *offset;
 						*offset += *increment_by;
 						Instruction::I32Const(current as i32)
 					},
-					CountedInstruction::RandomUnaligned(low, high) => {
+					DynInstr::RandomUnaligned(low, high) => {
 						let unaligned = rng.gen_range(*low, *high) | 1;
 						Instruction::I32Const(unaligned as i32)
 					},

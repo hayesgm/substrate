@@ -846,7 +846,7 @@ benchmarks! {
 			.peekable();
 		let topics_len = topics.peek().map(|i| i.len()).unwrap_or(0);
 		let topics = topics.flatten().collect();
-		use body::CountedInstruction::{Counter, Regular};
+		use body::DynInstr::{Counter, Regular};
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -860,7 +860,7 @@ benchmarks! {
 					value: topics,
 				},
 			],
-			call_body: Some(body::counted(API_BENCHMARK_BATCH_SIZE, vec![
+			call_body: Some(body::repeated_dyn(API_BENCHMARK_BATCH_SIZE, vec![
 				Counter(0, topics_len as u32), // topics_ptr
 				Regular(Instruction::I32Const(topics_len as i32)), // topics_len
 				Regular(Instruction::I32Const(0)), // data_ptr
@@ -911,7 +911,7 @@ benchmarks! {
 			.flat_map(|n| T::Hashing::hash_of(&n).as_ref().to_vec())
 			.collect::<Vec<_>>();
 		let key_len = sp_std::mem::size_of::<<T::Hashing as sp_runtime::traits::Hash>::Output>();
-		use body::CountedInstruction::{Counter, Regular};
+		use body::DynInstr::{Counter, Regular};
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -925,7 +925,7 @@ benchmarks! {
 					value: keys,
 				},
 			],
-			call_body: Some(body::counted(r * API_BENCHMARK_BATCH_SIZE, vec![
+			call_body: Some(body::repeated_dyn(r * API_BENCHMARK_BATCH_SIZE, vec![
 				Counter(0, key_len as u32), // key_ptr
 				Regular(Instruction::I32Const(0)), // value_ptr
 				Regular(Instruction::I32Const(0)), // value_len
@@ -976,7 +976,7 @@ benchmarks! {
 			.collect::<Vec<_>>();
 		let key_bytes = keys.iter().flatten().cloned().collect::<Vec<_>>();
 		let key_len = sp_std::mem::size_of::<<T::Hashing as sp_runtime::traits::Hash>::Output>();
-		use body::CountedInstruction::{Counter, Regular};
+		use body::DynInstr::{Counter, Regular};
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -990,7 +990,7 @@ benchmarks! {
 					value: key_bytes,
 				},
 			],
-			call_body: Some(body::counted(r * API_BENCHMARK_BATCH_SIZE, vec![
+			call_body: Some(body::repeated_dyn(r * API_BENCHMARK_BATCH_SIZE, vec![
 				Counter(0, key_len as u32),
 				Regular(Instruction::Call(0)),
 			])),
@@ -1019,7 +1019,7 @@ benchmarks! {
 		let key_len = sp_std::mem::size_of::<<T::Hashing as sp_runtime::traits::Hash>::Output>();
 		let key_bytes = keys.iter().flatten().cloned().collect::<Vec<_>>();
 		let key_bytes_len = key_bytes.len();
-		use body::CountedInstruction::{Counter, Regular};
+		use body::DynInstr::{Counter, Regular};
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -1033,7 +1033,7 @@ benchmarks! {
 					value: key_bytes,
 				},
 			],
-			call_body: Some(body::counted(r * API_BENCHMARK_BATCH_SIZE, vec![
+			call_body: Some(body::repeated_dyn(r * API_BENCHMARK_BATCH_SIZE, vec![
 				Counter(0, key_len as u32), // key_ptr
 				Regular(Instruction::I32Const((key_bytes_len + 4) as i32)), // out_ptr
 				Regular(Instruction::I32Const(key_bytes_len as i32)), // out_len_ptr
@@ -1111,7 +1111,7 @@ benchmarks! {
 		assert!(value > 0.into());
 		let value_bytes = value.encode();
 		let value_len = value_bytes.len();
-		use body::CountedInstruction::{Counter, Regular};
+		use body::DynInstr::{Counter, Regular};
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -1129,7 +1129,7 @@ benchmarks! {
 					value: account_bytes,
 				},
 			],
-			call_body: Some(body::counted(r * API_BENCHMARK_BATCH_SIZE, vec![
+			call_body: Some(body::repeated_dyn(r * API_BENCHMARK_BATCH_SIZE, vec![
 				Counter(value_len as u32, account_len as u32), // account_ptr
 				Regular(Instruction::I32Const(account_len as i32)), // account_len
 				Regular(Instruction::I32Const(0)), // value_ptr
@@ -1163,7 +1163,7 @@ benchmarks! {
 		let value: BalanceOf<T> = 0.into();
 		let value_bytes = value.encode();
 		let value_len = value_bytes.len();
-		use body::CountedInstruction::{Counter, Regular};
+		use body::DynInstr::{Counter, Regular};
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -1191,7 +1191,7 @@ benchmarks! {
 					value: callee_bytes,
 				},
 			],
-			call_body: Some(body::counted(r * API_BENCHMARK_BATCH_SIZE, vec![
+			call_body: Some(body::repeated_dyn(r * API_BENCHMARK_BATCH_SIZE, vec![
 				Counter(value_len as u32, callee_len as u32), // callee_ptr
 				Regular(Instruction::I32Const(callee_len as i32)), // callee_len
 				Regular(Instruction::I64Const(0)), // gas
@@ -1243,7 +1243,7 @@ benchmarks! {
 		let value: BalanceOf<T> = t.into();
 		let value_bytes = value.encode();
 		let value_len = value_bytes.len();
-		use body::CountedInstruction::{Counter, Regular};
+		use body::DynInstr::{Counter, Regular};
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -1275,7 +1275,7 @@ benchmarks! {
 					value: (o * 1024).to_le_bytes().into(),
 				},
 			],
-			call_body: Some(body::counted(API_BENCHMARK_BATCH_SIZE, vec![
+			call_body: Some(body::repeated_dyn(API_BENCHMARK_BATCH_SIZE, vec![
 				Counter(value_len as u32, callee_len as u32), // callee_ptr
 				Regular(Instruction::I32Const(callee_len as i32)), // callee_len
 				Regular(Instruction::I64Const(0)), // gas
@@ -1326,7 +1326,7 @@ benchmarks! {
 		let addr_len_offset = hashes_offset + hashes_len;
 		let addr_offset = addr_len_offset + addr_len;
 
-		use body::CountedInstruction::{Counter, Regular};
+		use body::DynInstr::{Counter, Regular};
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -1360,7 +1360,7 @@ benchmarks! {
 					value: addr_len.to_le_bytes().into(),
 				},
 			],
-			call_body: Some(body::counted(r * API_BENCHMARK_BATCH_SIZE, vec![
+			call_body: Some(body::repeated_dyn(r * API_BENCHMARK_BATCH_SIZE, vec![
 				Counter(hashes_offset as u32, hash_len as u32), // code_hash_ptr
 				Regular(Instruction::I32Const(hash_len as i32)), // code_hash_len
 				Regular(Instruction::I64Const(0)), // gas
@@ -1444,7 +1444,7 @@ benchmarks! {
 		let output_len_offset = addr_len_offset + 4;
 		let output_offset = output_len_offset + 4;
 
-		use body::CountedInstruction::{Counter, Regular};
+		use body::DynInstr::{Counter, Regular};
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -1486,7 +1486,7 @@ benchmarks! {
 					value: (o * 1024).to_le_bytes().into(),
 				},
 			],
-			call_body: Some(body::counted(API_BENCHMARK_BATCH_SIZE, vec![
+			call_body: Some(body::repeated_dyn(API_BENCHMARK_BATCH_SIZE, vec![
 				Regular(Instruction::I32Const(hash_offset as i32)), // code_hash_ptr
 				Regular(Instruction::I32Const(hash_len as i32)), // code_hash_len
 				Regular(Instruction::I64Const(0)), // gas
@@ -1607,10 +1607,10 @@ benchmarks! {
 
 	instr_i64load {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
-		use body::CountedInstruction::{RandomUnaligned, Regular};
+		use body::DynInstr::{RandomUnaligned, Regular};
 		let mut sandbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
-			call_body: Some(body::counted(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
+			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
 				RandomUnaligned(0, code::max_pages::<T>() * 64 * 1024 - 8),
 				Regular(Instruction::I64Load(3, 0)),
 				Regular(Instruction::Drop),
