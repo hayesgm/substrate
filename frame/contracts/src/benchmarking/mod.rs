@@ -1586,21 +1586,14 @@ benchmarks! {
 
 	instr_i64const {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
-		let mut sbox = Sandbox::from(&WasmModule::<T>::repeated(r * INSTR_BENCHMARK_BATCH_SIZE, &[
-			Instruction::I64Const(i64::max_value() - 1),
-			Instruction::Drop,
-		]));
-	}: {
-		sbox.invoke();
-	}
-
-	instr_br {
-		let r in 0 .. INSTR_BENCHMARK_BATCHES;
-		let mut sbox = Sandbox::from(&WasmModule::<T>::repeated(r * INSTR_BENCHMARK_BATCH_SIZE, &[
-			Instruction::Block(BlockType::NoResult),
-			Instruction::Br(0),
-			Instruction::End,
-		]));
+		use body::DynInstr::{RandomI64, Regular};
+		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::Drop),
+			])),
+			.. Default::default()
+		}));
 	}: {
 		sbox.invoke();
 	}
@@ -1614,6 +1607,22 @@ benchmarks! {
 				RandomUnaligned(0, code::max_pages::<T>() * 64 * 1024 - 8),
 				Regular(Instruction::I64Load(3, 0)),
 				Regular(Instruction::Drop),
+			])),
+			.. Default::default()
+		}));
+	}: {
+		sbox.invoke();
+	}
+
+	instr_i64store {
+		let r in 0 .. INSTR_BENCHMARK_BATCHES;
+		use body::DynInstr::{RandomI64, RandomUnaligned, Regular};
+		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+			memory: Some(ImportedMemory::max::<T>()),
+			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
+				RandomUnaligned(0, code::max_pages::<T>() * 64 * 1024 - 8),
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::I64Store(3, 0)),
 			])),
 			.. Default::default()
 		}));
@@ -1687,6 +1696,6 @@ mod tests {
 	create_test!(seal_hash_blake2_128);
 	create_test!(seal_hash_blake2_128_per_kb);
 	create_test!(instr_i64const);
-	create_test!(instr_br);
 	create_test!(instr_i64load);
+	create_test!(instr_i64store);
 }

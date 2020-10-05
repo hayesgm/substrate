@@ -234,18 +234,6 @@ impl<T: Trait> WasmModule<T> {
 		.into()
 	}
 
-	/// Build code by chaining `instructions` `repeat` times. Injects stack metering.
-	/// This is a shortcut for instruction benchmarks that do not need any variables,
-	/// memory, imported functions or other elements inside the module.
-	pub fn repeated(repeat: u32, instructions: &[Instruction]) -> Self {
-		ModuleDefinition {
-			call_body: Some(body::repeated(repeat, instructions)),
-			inject_stack_metering: true,
-			.. Default::default()
-		}
-		.into()
-	}
-
 	/// Creates a memory instance for use in a sandbox with dimensions declared in this module
 	/// and adds it to `env`. A reference to that memory is returned so that it can be used to
 	/// access the memory contents from the supervisor.
@@ -274,9 +262,12 @@ pub mod body {
 		/// Insert a I32Const with incrementing value for each insertion.
 		/// (start_at, increment_by)
 		Counter(u32, u32),
-		/// Insert a I32Const with a random  value in [low, high) not devisable by two.
+		/// Insert a I32Const with a random value in [low, high) not devisable by two.
 		/// (low, high)
 		RandomUnaligned(u32, u32),
+		/// Insert a I64Const with a random value in [low, high).
+		/// (low, high)
+		RandomI64(i64, i64),
 	}
 
 	pub fn plain(instructions: Vec<Instruction>) -> FuncBody {
@@ -317,6 +308,9 @@ pub mod body {
 					DynInstr::RandomUnaligned(low, high) => {
 						let unaligned = rng.gen_range(*low, *high) | 1;
 						Instruction::I32Const(unaligned as i32)
+					},
+					DynInstr::RandomI64(low, high) => {
+						Instruction::I64Const(rng.gen_range(*low, *high))
 					},
 				}
 			})
