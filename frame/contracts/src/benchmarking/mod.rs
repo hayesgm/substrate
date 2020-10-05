@@ -1608,7 +1608,7 @@ benchmarks! {
 	instr_i64load {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
 		use body::DynInstr::{RandomUnaligned, Regular};
-		let mut sandbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
 				RandomUnaligned(0, code::max_pages::<T>() * 64 * 1024 - 8),
@@ -1618,7 +1618,7 @@ benchmarks! {
 			.. Default::default()
 		}));
 	}: {
-		sandbox.invoke();
+		sbox.invoke();
 	}
 }
 
