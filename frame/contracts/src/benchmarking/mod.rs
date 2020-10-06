@@ -1584,6 +1584,16 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0.into(), Weight::max_value(), vec![])
 
+	// We make the assumption that pushing a constant and dropping a value takes roughly
+	// the same amount of time. We follow that `t.load` and `drop` both have the weight
+	// of this benchmark / 2. We need to make this assumption because there is no way
+	// to measure them on their own using a valid wasm module. We need their individual
+	// values to derive the weight of individual instructions (by substraction) from
+	// benchmarks that include those for parameter pushing and return type dropping.
+	// We call the weight of `t.load` and `drop`: `w_param`.
+	// The weight that would result from the respective benchmark we call: `w_bench`.
+	//
+	// w_i{32,64}const = w_drop = w_bench / 2
 	instr_i64const {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
 		use body::DynInstr::{RandomI64, Regular};
@@ -1598,6 +1608,7 @@ benchmarks! {
 		sbox.invoke();
 	}
 
+	// w_i{32,64}load = w_bench - 2 * w_param
 	instr_i64load {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
 		use body::DynInstr::{RandomUnaligned, Regular};
@@ -1614,6 +1625,7 @@ benchmarks! {
 		sbox.invoke();
 	}
 
+	// w_i{32,64}store{...} = w_bench - 2 * w_param
 	instr_i64store {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
 		use body::DynInstr::{RandomI64, RandomUnaligned, Regular};
@@ -1630,6 +1642,7 @@ benchmarks! {
 		sbox.invoke();
 	}
 
+	// w_select = w_bench - 4 * w_param
 	instr_select {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
 		use body::DynInstr::{RandomI64, RandomI32, Regular};
@@ -1639,6 +1652,93 @@ benchmarks! {
 				RandomI64(i64::min_value(), i64::max_value()),
 				RandomI32(0, 2),
 				Regular(Instruction::Select),
+				Regular(Instruction::Drop),
+			])),
+			.. Default::default()
+		}));
+	}: {
+		sbox.invoke();
+	}
+
+	// w_select = w_bench - 4 * w_param
+	instr_select {
+		let r in 0 .. INSTR_BENCHMARK_BATCHES;
+		use body::DynInstr::{RandomI64, RandomI32, Regular};
+		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
+				RandomI64(i64::min_value(), i64::max_value()),
+				RandomI64(i64::min_value(), i64::max_value()),
+				RandomI32(0, 2),
+				Regular(Instruction::Select),
+				Regular(Instruction::Drop),
+			])),
+			.. Default::default()
+		}));
+	}: {
+		sbox.invoke();
+	}
+
+	// w_select = w_bench - 4 * w_param
+	instr_if {
+		let r in 0 .. INSTR_BENCHMARK_BATCHES;
+		use body::DynInstr::{RandomI64, RandomI32, Regular};
+		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
+				RandomI32(, i64::max_value()),
+				Regular(Instruction::If(BlockType::NoValue)),
+				RandomI64(i64::min_value(), i64::max_value()),
+				RandomI32(0, 2),
+				Regular(Instruction::Select),
+				Regular(Instruction::Drop),
+			])),
+			.. Default::default()
+		}));
+	}: {
+		sbox.invoke();
+	}
+
+	// w_i{32,64}add = w_bench - 3 * w_param
+	instr_i64add {
+		let r in 0 .. INSTR_BENCHMARK_BATCHES;
+		use body::DynInstr::{RandomI64, RandomI32, Regular};
+		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
+				RandomI64(i64::min_value(), i64::max_value()),
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::I64Add),
+				Regular(Instruction::Drop),
+			])),
+			.. Default::default()
+		}));
+	}: {
+		sbox.invoke();
+	}
+
+	// w_i{32,64}div{U,S} = w_bench - 3 * w_param
+	instr_i64divu {
+		let r in 0 .. INSTR_BENCHMARK_BATCHES;
+		use body::DynInstr::{RandomI64, RandomI32, Regular};
+		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
+				RandomI64(i64::min_value(), i64::max_value()),
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::I64DivU),
+				Regular(Instruction::Drop),
+			])),
+			.. Default::default()
+		}));
+	}: {
+		sbox.invoke();
+	}
+
+	// w_i{32,64}clz = w_bench - 2 * w_param
+	instr_i64clz {
+		let r in 0 .. INSTR_BENCHMARK_BATCHES;
+		use body::DynInstr::{RandomI64, RandomI32, Regular};
+		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::I64Clz),
 				Regular(Instruction::Drop),
 			])),
 			.. Default::default()
@@ -1712,8 +1812,4 @@ mod tests {
 	create_test!(seal_hash_blake2_256_per_kb);
 	create_test!(seal_hash_blake2_128);
 	create_test!(seal_hash_blake2_128_per_kb);
-	create_test!(instr_i64const);
-	create_test!(instr_i64load);
-	create_test!(instr_i64store);
-	create_test!(instr_select);
 }
