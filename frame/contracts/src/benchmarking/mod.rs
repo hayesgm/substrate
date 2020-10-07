@@ -1660,16 +1660,18 @@ benchmarks! {
 		sbox.invoke();
 	}
 
-	// w_select = w_bench - 4 * w_param
-	instr_select {
+	// w_if = w_bench - 3 * w_param
+	instr_if {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
 		use body::DynInstr::{RandomI64, RandomI32, Regular};
 		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
 			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
-				RandomI64(i64::min_value(), i64::max_value()),
-				RandomI64(i64::min_value(), i64::max_value()),
 				RandomI32(0, 2),
-				Regular(Instruction::Select),
+				Regular(Instruction::If(BlockType::Value(ValueType::I64))),
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::Else),
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::End),
 				Regular(Instruction::Drop),
 			])),
 			.. Default::default()
@@ -1678,18 +1680,54 @@ benchmarks! {
 		sbox.invoke();
 	}
 
-	// w_select = w_bench - 4 * w_param
-	instr_if {
+	// w_br = w_bench - 2 * w_param
+	instr_br {
+		let r in 0 .. INSTR_BENCHMARK_BATCHES;
+		use body::DynInstr::{RandomI64, Regular};
+		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
+				Regular(Instruction::Block(BlockType::NoResult)),
+				Regular(Instruction::Block(BlockType::NoResult)),
+				Regular(Instruction::Block(BlockType::NoResult)),
+				Regular(Instruction::Br(1)),
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::Drop),
+				Regular(Instruction::End),
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::Drop),
+				Regular(Instruction::End),
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::Drop),
+				Regular(Instruction::End),
+			])),
+			.. Default::default()
+		}));
+	}: {
+		sbox.invoke();
+	}
+
+	// w_br_if = w_bench - 4 * w_param
+	// The two additional pushed are only executed 50% of the time.
+	// Making it: 2 * w_param * (50% * 4 * w_param)
+	instr_br_if {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
 		use body::DynInstr::{RandomI64, RandomI32, Regular};
 		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
 			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
-				RandomI32(, i64::max_value()),
-				Regular(Instruction::If(BlockType::NoValue)),
-				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::Block(BlockType::NoResult)),
+				Regular(Instruction::Block(BlockType::NoResult)),
+				Regular(Instruction::Block(BlockType::NoResult)),
 				RandomI32(0, 2),
-				Regular(Instruction::Select),
+				Regular(Instruction::BrIf(1)),
+				RandomI64(i64::min_value(), i64::max_value()),
 				Regular(Instruction::Drop),
+				Regular(Instruction::End),
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::Drop),
+				Regular(Instruction::End),
+				RandomI64(i64::min_value(), i64::max_value()),
+				Regular(Instruction::Drop),
+				Regular(Instruction::End),
 			])),
 			.. Default::default()
 		}));
@@ -1700,7 +1738,7 @@ benchmarks! {
 	// w_i{32,64}add = w_bench - 3 * w_param
 	instr_i64add {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
-		use body::DynInstr::{RandomI64, RandomI32, Regular};
+		use body::DynInstr::{RandomI64, Regular};
 		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
 			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
 				RandomI64(i64::min_value(), i64::max_value()),
@@ -1717,7 +1755,7 @@ benchmarks! {
 	// w_i{32,64}div{U,S} = w_bench - 3 * w_param
 	instr_i64divu {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
-		use body::DynInstr::{RandomI64, RandomI32, Regular};
+		use body::DynInstr::{RandomI64, Regular};
 		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
 			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
 				RandomI64(i64::min_value(), i64::max_value()),
@@ -1734,7 +1772,7 @@ benchmarks! {
 	// w_i{32,64}clz = w_bench - 2 * w_param
 	instr_i64clz {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
-		use body::DynInstr::{RandomI64, RandomI32, Regular};
+		use body::DynInstr::{RandomI64, Regular};
 		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
 			call_body: Some(body::repeated_dyn(r * INSTR_BENCHMARK_BATCH_SIZE, vec![
 				RandomI64(i64::min_value(), i64::max_value()),
