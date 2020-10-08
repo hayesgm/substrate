@@ -41,6 +41,7 @@ pub struct ModuleDefinition {
 	pub imported_functions: Vec<ImportedFunction>,
 	pub deploy_body: Option<FuncBody>,
 	pub call_body: Option<FuncBody>,
+	pub aux_body: Option<FuncBody>,
 	/// If seto to true the stack height limiter is injected into the the module. This is
 	/// needed for instruction debugging because the cost of executing the stack height
 	/// instrumentation should be included in the costs for the individual instructions that cause
@@ -103,6 +104,15 @@ impl<T: Trait> From<ModuleDefinition> for WasmModule<T> {
 				.build()
 			.export().field("deploy").internal().func(func_offset).build()
 			.export().field("call").internal().func(func_offset + 1).build();
+
+		// If specified we add an additional internal function
+		if let Some(body) = def.aux_body {
+			contract = contract
+				.function()
+				.signature().with_params(vec![]).with_return_type(None).build()
+				.with_body(body)
+				.build();
+		}
 
 		// Grant access to linear memory.
 		if let Some(memory) = &def.memory {

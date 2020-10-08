@@ -1735,6 +1735,31 @@ benchmarks! {
 		sbox.invoke();
 	}
 
+	// w_call = w_bench - 2 * w_param
+	// Note
+	// This is a very slow instruction. We therefore use the API benchmark batch
+	// parameters that use a lower repetition count. Otherwise this benchmark would
+	// be too time consuming.
+	instr_call {
+		let r in 0 .. API_BENCHMARK_BATCHES;
+		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
+			// We need to make use of the stack here in order to trigger stack height
+			// instrumentation.
+			aux_body: Some(body::plain(vec![
+				Instruction::I64Const(42),
+				Instruction::Drop,
+				Instruction::End,
+			])),
+			call_body: Some(body::repeated(r * API_BENCHMARK_BATCH_SIZE, &[
+				Instruction::Call(2), // call aux
+			])),
+			inject_stack_metering: true,
+			.. Default::default()
+		}));
+	}: {
+		sbox.invoke();
+	}
+
 	// w_i{32,64}add = w_bench - 3 * w_param
 	instr_i64add {
 		let r in 0 .. INSTR_BENCHMARK_BATCHES;
